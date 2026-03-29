@@ -110,19 +110,6 @@ struct AddSnippetView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header - simple
-            Text("Add to Tidbits")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .contentShape(Rectangle())
-                .onTapGesture { isEditing = false }
-            
-            // Divider
-            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
-            
             // Page selector
             ScrollView {
                 VStack(spacing: 0) {
@@ -167,13 +154,6 @@ struct AddSnippetView: View {
             
             // Preview / Edit section
             VStack(alignment: .leading, spacing: 8) {
-                Text("Snippet")
-                    .font(.system(size: 11))
-                    .foregroundColor(textTertiary)
-                    .contentShape(Rectangle())
-                    .onTapGesture { isEditing = false }
-                    .animation(nil, value: isEditing)
-
                 if isEditing {
                     // Editing mode - TextEditor with box
                     TextEditor(text: $editableText)
