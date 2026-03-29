@@ -16,6 +16,8 @@ Tidbits floats on top of whatever you're using. Save, and the panel disappears. 
 
 Everything is stored as local files on your Mac. Zero network calls, zero accounts. Your data is yours — read it, script against it, back it up however you want.
 
+![Tidbits app](tidbits_preview.png)
+
 ## Designed to just dump text
 
 |  | Obsidian | Tidbits |
