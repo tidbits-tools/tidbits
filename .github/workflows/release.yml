@@ -6,7 +6,32 @@ on:
       - 'v*'
 
 jobs:
-  build-sign-release:
+  test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: cd NotesCore && swift test
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Verify app compiles
+        run: |
+          xcodegen generate
+          xcodebuild -project Tidbits.xcodeproj \
+            -scheme Tidbits \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath .derivedData \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM= \
+            build
+
+  release:
+    needs: test
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +60,11 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | tr -d '"')
 
+      - name: Decode notarization key
+        env:
+          NOTARIZATION_KEY: ${{ secrets.NOTARIZATION_KEY }}
+        run: echo -n "$NOTARIZATION_KEY" | base64 --decode -o $RUNNER_TEMP/notarization_key.p8
+
       - name: Build
         run: |
           xcodebuild -project Tidbits.xcodeproj \
@@ -52,13 +82,10 @@ jobs:
 
       - name: Notarize app
         env:
-          NOTARIZATION_KEY: ${{ secrets.NOTARIZATION_KEY }}
           NOTARIZATION_KEY_ID: ${{ secrets.NOTARIZATION_KEY_ID }}
           NOTARIZATION_ISSUER_ID: ${{ secrets.NOTARIZATION_ISSUER_ID }}
         run: |
           KEY_PATH=$RUNNER_TEMP/notarization_key.p8
-          echo -n "$NOTARIZATION_KEY" | base64 --decode -o $KEY_PATH
-
           APP_PATH=.derivedData/Build/Products/Release/Tidbits.app
           ditto -c -k --keepParent "$APP_PATH" "$APP_PATH/../Tidbits.zip"
 
@@ -73,6 +100,7 @@ jobs:
 
       - name: Create DMG
         run: |
+          set +e
           create-dmg \
             --volname "Tidbits" \
             --window-pos 200 120 \
@@ -82,12 +110,13 @@ jobs:
             --app-drop-link 450 185 \
             --no-internet-enable \
             Tidbits.dmg \
-            .derivedData/Build/Products/Release/Tidbits.app \
-          || if [ $? -ne 2 ]; then exit 1; fi
+            .derivedData/Build/Products/Release/Tidbits.app
+          EXIT_CODE=$?
+          set -e
+          if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 2 ]; then exit $EXIT_CODE; fi
 
       - name: Sign and notarize DMG
         env:
-          NOTARIZATION_KEY: ${{ secrets.NOTARIZATION_KEY }}
           NOTARIZATION_KEY_ID: ${{ secrets.NOTARIZATION_KEY_ID }}
           NOTARIZATION_ISSUER_ID: ${{ secrets.NOTARIZATION_ISSUER_ID }}
         run: |
