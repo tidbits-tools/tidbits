@@ -169,10 +169,7 @@ jobs:
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
-          KEY_FILE=$RUNNER_TEMP/sparkle_key
-          echo -n "$SPARKLE_ED_PRIVATE_KEY" > "$KEY_FILE"
-
-          SIGN_OUTPUT=$(sign_update Tidbits.dmg --ed-key-file "$KEY_FILE" 2>&1) || {
+          SIGN_OUTPUT=$(echo -n "$SPARKLE_ED_PRIVATE_KEY" | sign_update Tidbits.dmg --ed-key-file - 2>&1) || {
             echo "sign_update failed with exit code $?"
             echo "Output: $SIGN_OUTPUT"
             exit 1
@@ -189,8 +186,6 @@ jobs:
 
           echo "SPARKLE_ED_SIGNATURE=$ED_SIGNATURE" >> "$GITHUB_ENV"
           echo "SPARKLE_FILE_LENGTH=$FILE_LENGTH" >> "$GITHUB_ENV"
-
-          rm -f "$KEY_FILE"
 
       - name: Create GitHub Release
         env:
@@ -224,6 +219,6 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          rm -f $RUNNER_TEMP/notarization_key.p8 $RUNNER_TEMP/sparkle_key
+          rm -f $RUNNER_TEMP/notarization_key.p8
           rm -f .derivedData/Build/Products/Release/Tidbits.zip
           rm -rf sparkle-spm
