@@ -184,7 +184,15 @@ jobs:
           KEY_FILE=$RUNNER_TEMP/sparkle_key
           echo "$SPARKLE_ED_PRIVATE_KEY" > "$KEY_FILE"
 
-          SIGN_OUTPUT=$(sign_update Tidbits.dmg --ed-key-file "$KEY_FILE")
+          echo "Key file size: $(wc -c < "$KEY_FILE") bytes"
+          echo "DMG exists: $(ls -la Tidbits.dmg)"
+          echo "sign_update location: $(which sign_update)"
+
+          SIGN_OUTPUT=$(sign_update Tidbits.dmg --ed-key-file "$KEY_FILE" 2>&1) || {
+            echo "sign_update failed with exit code $?"
+            echo "Output: $SIGN_OUTPUT"
+            exit 1
+          }
           echo "Sparkle signature: $SIGN_OUTPUT"
 
           ED_SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2)
