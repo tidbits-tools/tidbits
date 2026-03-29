@@ -19,8 +19,6 @@ targets:
     sources:
       - path: Notes/Sources
       - path: Notes/Assets.xcassets
-    configFiles:
-      Release: Signing.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tools.tidbits

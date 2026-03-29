@@ -2,12 +2,12 @@
 // Copy this file to Signing.xcconfig and fill in your values.
 // Signing.xcconfig is gitignored — your credentials stay local.
 //
-// Without this file, `make build` produces an unsigned build (fine for development).
-// With this file, `make build` produces a signed build.
-// `make release` (notarize + DMG) requires valid signing credentials.
+// Without this file, `make build` produces an ad-hoc signed build (fine for development).
+// With this file, `make build` produces a Developer ID signed build.
+// `make release` (notarize + DMG) requires all values filled in.
 
 DEVELOPMENT_TEAM =
-CODE_SIGN_IDENTITY = -
-CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Developer ID Application
+CODE_SIGN_STYLE = Manual
 SIGNING_CERTIFICATE =
 NOTARIZE_PROFILE =

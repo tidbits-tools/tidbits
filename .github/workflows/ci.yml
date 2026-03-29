@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: cd NotesCore && swift test
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Verify app compiles
+        run: |
+          xcodegen generate
+          xcodebuild -project Tidbits.xcodeproj \
+            -scheme Tidbits \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath .derivedData \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM= \
+            build
