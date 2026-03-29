@@ -1,75 +1,51 @@
-# Tidbits (macOS)
+# Tidbits
 
-Local-only macOS app for saving selected text into simple "pages" (collections of snippets).
+**Quick capture any text. From anywhere on your Mac.**
 
-## Project layout
+Select text in any app, press **⌘⇧.**, and it's saved. No switching windows, no copy-paste workflow, no accounts.
 
-- `project.yml`: xcodegen spec (source of truth)
-- `Tidbits.xcodeproj`: generated (do not hand-edit; re-generate)
-- `Notes/`: app sources + plist + entitlements
-- `NotesCore/`: Swift package (models, storage, tests)
-- `Makefile`: build/install/update commands
+![Tidbits capture flow](tidbits_carousel.gif)
 
-## Quick start (Makefile)
+## Capture without switching windows
 
-From this folder:
+Tidbits floats on top of whatever you're using. Save, and the panel disappears. Your focus stays where it was.
 
-```bash
-make update   # build, install to /Applications, and run
-```
+![Tidbits floating panel](tidbits_overlay.gif)
 
-Other commands:
+## Private, offline documents
 
-| Command              | Description                                              |
-|----------------------|----------------------------------------------------------|
-| `make build`         | Build release (signed if `Signing.xcconfig` exists)      |
-| `make build-unsigned`| Build without signing (for contributors)                 |
-| `make update`        | Kill → build → install → run (full update cycle)         |
-| `make dev`           | Kill → build → run from build dir (faster, no install)   |
-| `make install`       | Kill → build → copy to /Applications                     |
-| `make run`           | Launch from /Applications                                |
-| `make generate`      | Regenerate Xcode project from project.yml                |
-| `make test`          | Run NotesCore unit tests                                 |
-| `make clean`         | Remove build artifacts and .xcodeproj                    |
-| `make kill`          | Kill running Tidbits app                                 |
+Everything is stored as local files on your Mac. Zero network calls, zero accounts. Your data is yours — read it, script against it, back it up however you want.
 
-## Build/run via Xcode (development)
+## Designed to just dump text
 
-```bash
-make generate
-open Tidbits.xcodeproj
-```
+|  | Obsidian | Tidbits |
+|---|---|---|
+| Capture from any app | Plugin required | **⌘⇧.** |
+| Works without switching windows | No | **Yes** |
+| Setup | Vault + plugins + config | **Just ⌘⇧.** |
+| Local files | Yes | **Yes** |
 
-Then in Xcode: select scheme **Tidbits** → Run (⌘R).
+Obsidian is a knowledge system. Tidbits is a capture tool. If you just want to grab text fast and organize it later, that's what this is for.
 
-## Storage
+## Works with everything
 
-JSON persisted via `NotesCore.NotesStore` into Application Support under `TidbitsLocal`.
+Browsers, terminals, AI apps, editors, mail, notes — anything with selectable text. Also works via right-click → **Services** → **Add to Tidbits** (no permissions needed).
 
-## Text capture
+## Download
 
-Two capture methods:
+Get the app at [tidbits.tools](https://tidbits.tools). Requires macOS 14.0+.
 
-### Global hotkey (⌘⇧.)
+## Build from source
 
-Select text anywhere, press **Command + Shift + Period**. Requires Accessibility permission (prompted on first launch).
-
-**How it works**: Simulates `Cmd+C` via CGEvent, waits 150ms, reads the pasteboard. Uses `CGEventSource(stateID: .privateState)` to create an isolated keyboard state — without this, physically-held modifier keys (Shift, Command) leak into the simulated keypress and terminal emulators like Ghostty see `⌘⇧C` instead of `⌘C`.
-
-**Key repeat protection**: The hotkey handler ignores `event.isARepeat` and checks panel visibility before triggering. Without these guards, holding the hotkey fires a second capture attempt — by then the panel is focused, the simulated `Cmd+C` goes to the panel (nothing to copy), and the panel gets replaced with empty text. See `HotkeyPolicy` in NotesCore for the testable logic.
-
-**Cancel button uses Escape only**: The panel's Cancel button uses `.keyboardShortcut(.escape, modifiers: [])` instead of `.cancelAction`. On macOS, `.cancelAction` maps to both Escape and `⌘.` (Command+Period), which conflicts with the `⌘⇧.` hotkey when Shift is released slightly before the other keys.
-
-### Services (right-click)
-
-Select text → right click → **Services** → **Add to Tidbits**. Works everywhere including Ghostty. No permissions needed.
-
-**Pasteboard reading order**: RTF → HTML → plain text. Ghostty puts selected text on the pasteboard as RTF, not plain text. `PasteboardTextExtractor` tries RTF first and converts bold/italic to markdown.
-
-## Tests
-
-222 tests across 14 files in `NotesCore/Tests/`:
+Requires Xcode and [xcodegen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
-make test   # or: cd NotesCore && swift test
+make build-unsigned   # build without signing
+make update           # build, install to /Applications, and run
 ```
+
+See [CLAUDE.md](CLAUDE.md) for architecture, development gotchas, and the full build reference.
+
+## License
+
+[MIT](LICENSE)

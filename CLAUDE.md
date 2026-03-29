@@ -2,15 +2,42 @@
 
 Local-only native macOS app for saving text snippets via global hotkey and Services menu. No network, no sync, no auth.
 
+## Project Layout
+
+- `project.yml`: xcodegen spec (source of truth)
+- `Tidbits.xcodeproj`: generated (do not hand-edit; run `make generate`)
+- `Notes/`: SwiftUI app sources + plist
+- `NotesCore/`: Swift package (models, storage, tests)
+- `Makefile`: build/install/update/release commands
+
 ## Build
 
 ```bash
-make build        # Build release
-make test         # Run unit tests
-make dev          # Kill → build → run from build dir
-make update       # Kill → build → install → run
-make install      # Copy to /Applications
+make build           # Build release (signed if Signing.xcconfig exists)
+make build-unsigned  # Build without signing (for contributors)
+make test            # Run 222 unit tests
+make dev             # Kill → build → run from build dir
+make update          # Kill → build → install → run
+make install         # Copy to /Applications
+make generate        # Regenerate Xcode project from project.yml
+make clean           # Remove build artifacts and .xcodeproj
+make kill            # Kill running Tidbits app
 ```
+
+### Build via Xcode
+
+```bash
+make generate
+open Tidbits.xcodeproj
+```
+
+Select scheme **Tidbits** → Run (⌘R).
+
+### Signing (for distribution)
+
+Copy `Signing.xcconfig.example` to `Signing.xcconfig` and fill in your Developer ID credentials. `Signing.xcconfig` is gitignored. Without it, `make build` produces an unsigned build.
+
+Release pipeline (maintainer only): `make release` → build → notarize → staple → DMG.
 
 ## Schema
 
@@ -36,13 +63,17 @@ All files have 0o600 permissions.
 
 ## Key Behaviors
 
-**Global hotkey (⌘⇧.)**: Simulates Cmd+C via CGEvent, reads pasteboard (RTF → HTML → plain text priority), opens floating panel for page selection. Requires Accessibility permission.
+**Global hotkey (⌘⇧.)**: Simulates Cmd+C via CGEvent, waits 150ms for the pasteboard to update, then reads it (RTF → HTML → plain text priority). Opens floating panel for page selection. Requires Accessibility permission.
+
+Uses `CGEventSource(stateID: .privateState)` to create an isolated keyboard state — without this, physically-held modifier keys (Shift, Command) leak into the simulated keypress and terminal emulators like Ghostty see `⌘⇧C` instead of `⌘C`.
 
 **Key repeat protection**: `HotkeyPolicy` rejects `event.isARepeat` and checks panel visibility before triggering.
 
 **Cancel button**: Uses `.keyboardShortcut(.escape, modifiers: [])` not `.cancelAction` — the latter maps to `⌘.` which conflicts with the `⌘⇧.` hotkey.
 
 **Services menu**: Select text → right click → Services → Add to Tidbits. No permissions needed.
+
+**Pasteboard reading order**: RTF → HTML → plain text. Ghostty puts selected text on the pasteboard as RTF, not plain text. `PasteboardTextExtractor` tries RTF first and converts bold/italic to markdown.
 
 ## Development Gotchas
 
