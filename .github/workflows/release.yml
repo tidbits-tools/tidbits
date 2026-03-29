@@ -33,14 +33,27 @@ jobs:
   release:
     needs: test
     runs-on: macos-15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: brew install xcodegen create-dmg
 
+      - name: Install Sparkle CLI tools
+        run: |
+          SPARKLE_VERSION="2.9.0"
+          curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-for-Swift-Package-Manager.zip" -o sparkle-spm.zip
+          unzip -qo sparkle-spm.zip -d sparkle-spm
+          echo "$PWD/sparkle-spm/bin" >> "$GITHUB_PATH"
+          rm sparkle-spm.zip
+
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          xcodegen generate
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString $(MARKETING_VERSION)' Notes/Info.plist
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion $(CURRENT_PROJECT_VERSION)' Notes/Info.plist
 
       - name: Import signing certificate
         env:
@@ -66,6 +79,8 @@ jobs:
         run: echo -n "$NOTARIZATION_KEY" | base64 --decode -o $RUNNER_TEMP/notarization_key.p8
 
       - name: Build
+        env:
+          SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
         run: |
           xcodebuild -project Tidbits.xcodeproj \
             -scheme Tidbits \
@@ -78,7 +93,37 @@ jobs:
             ENABLE_HARDENED_RUNTIME=YES \
             OTHER_CODE_SIGN_FLAGS=--timestamp \
             CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            SPARKLE_ED_PUBLIC_KEY="$SPARKLE_ED_PUBLIC_KEY" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             build
+
+      - name: Inject Sparkle public key
+        env:
+          SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
+        run: |
+          APP_PATH=.derivedData/Build/Products/Release/Tidbits.app
+          /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $SPARKLE_ED_PUBLIC_KEY" "$APP_PATH/Contents/Info.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $SPARKLE_ED_PUBLIC_KEY" "$APP_PATH/Contents/Info.plist"
+
+      - name: Codesign Sparkle framework
+        run: |
+          APP_PATH=.derivedData/Build/Products/Release/Tidbits.app
+          FW="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+
+          # Sign sub-components if they exist (may vary by Sparkle version)
+          for component in \
+            "$FW/Versions/B/XPCServices/Downloader.xpc" \
+            "$FW/Versions/B/XPCServices/Installer.xpc" \
+            "$FW/Versions/B/Autoupdate" \
+            "$FW/Versions/B/Updater.app"; do
+            if [ -e "$component" ]; then
+              codesign --force --sign "Developer ID Application" --timestamp -o runtime "$component"
+            fi
+          done
+
+          # These must succeed — no || true
+          codesign --force --sign "Developer ID Application" --timestamp -o runtime "$FW"
+          codesign --force --sign "Developer ID Application" --timestamp -o runtime "$APP_PATH"
 
       - name: Notarize app
         env:
@@ -132,6 +177,29 @@ jobs:
 
           xcrun stapler staple Tidbits.dmg
 
+      - name: Sign DMG for Sparkle
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          KEY_FILE=$RUNNER_TEMP/sparkle_key
+          echo -n "$SPARKLE_ED_PRIVATE_KEY" > "$KEY_FILE"
+
+          SIGN_OUTPUT=$(sign_update Tidbits.dmg --ed-key-file "$KEY_FILE")
+          echo "Sparkle signature: $SIGN_OUTPUT"
+
+          ED_SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2)
+          FILE_LENGTH=$(echo "$SIGN_OUTPUT" | grep -o 'length="[^"]*"' | cut -d'"' -f2)
+
+          if [ -z "$ED_SIGNATURE" ] || [ -z "$FILE_LENGTH" ]; then
+            echo "ERROR: Failed to parse sign_update output: $SIGN_OUTPUT"
+            exit 1
+          fi
+
+          echo "SPARKLE_ED_SIGNATURE=$ED_SIGNATURE" >> "$GITHUB_ENV"
+          echo "SPARKLE_FILE_LENGTH=$FILE_LENGTH" >> "$GITHUB_ENV"
+
+          rm -f "$KEY_FILE"
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -141,9 +209,30 @@ jobs:
             --title "Tidbits ${{ github.ref_name }}" \
             --generate-notes
 
+      - name: Update appcast
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          BUILD="${{ github.run_number }}"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/$TAG/Tidbits.dmg"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+
+          bash scripts/update-appcast.sh "$VERSION" "$BUILD" "$SPARKLE_ED_SIGNATURE" "$SPARKLE_FILE_LENGTH" "$DMG_URL"
+
+          git add appcast.xml
+          git commit -m "Update appcast for $TAG"
+          git push origin main
+
       - name: Cleanup
         if: always()
         run: |
           security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
-          rm -f $RUNNER_TEMP/certificate.p12 $RUNNER_TEMP/notarization_key.p8
+          rm -f $RUNNER_TEMP/certificate.p12 $RUNNER_TEMP/notarization_key.p8 $RUNNER_TEMP/sparkle_key
           rm -f .derivedData/Build/Products/Release/Tidbits.zip
+          rm -rf sparkle-spm

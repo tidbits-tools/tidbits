@@ -16,6 +16,9 @@ CLAUDE.local.md
 # Release artifacts
 .release/
 
+# Sparkle test keys and local server files
+.sparkle/
+
 # Claude Code
 .claude/
 

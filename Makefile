@@ -20,6 +20,8 @@ kill:
 # Generate Xcode project from project.yml
 generate:
 	@xcodegen generate
+	@/usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString $$(MARKETING_VERSION)' Notes/Info.plist
+	@/usr/libexec/PlistBuddy -c 'Set :CFBundleVersion $$(CURRENT_PROJECT_VERSION)' Notes/Info.plist
 
 # Build the app (Release). Uses Signing.xcconfig when present, otherwise ad-hoc.
 build: generate
@@ -107,3 +109,4 @@ dmg:
 
 # Full release pipeline: build → notarize app → staple app → create/sign/notarize DMG (maintainer only)
 release: notarize staple dmg
+
