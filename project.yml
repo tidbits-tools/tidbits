@@ -11,6 +11,9 @@ settings:
 packages:
   NotesCore:
     path: NotesCore
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: "2.9.0"
 
 targets:
   Tidbits:
@@ -37,6 +40,8 @@ targets:
         LSApplicationCategoryType: public.app-category.productivity
         LSUIElement: true
         NSAccessibilityUsageDescription: Tidbits needs Accessibility permission to capture selected text with a global keyboard shortcut.
+        SUFeedURL: https://raw.githubusercontent.com/tidbits-tools/tidbits/main/appcast.xml
+        SUPublicEDKey: $(SPARKLE_ED_PUBLIC_KEY)
         NSServices:
           - NSMenuItem:
               default: Add to Tidbits
@@ -51,5 +56,7 @@ targets:
     dependencies:
       - package: NotesCore
         product: NotesCore
+      - package: Sparkle
+        product: Sparkle
 
 

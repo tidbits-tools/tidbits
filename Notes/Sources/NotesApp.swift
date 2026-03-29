@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import NotesCore
 import ApplicationServices
+import Sparkle
 
 @MainActor
 final class AppState: ObservableObject {
@@ -44,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var appState: AppState?
     private let servicesProvider = ServicesProvider()
     private let hotkeyManager = HotkeyManager()
+    private let updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
     private var mainWindow: NSWindow?
     private var permissionWindow: NSWindow?
     private var onboardingWindow: NSWindow?
@@ -182,6 +184,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func showContextMenu() {
         guard let button = AppDelegate.retainedStatusItem?.button else { return }
         let menu = NSMenu()
+        let checkForUpdates = NSMenuItem(title: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+        checkForUpdates.target = updaterController
+        menu.addItem(checkForUpdates)
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Tidbits", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.maxY + 5), in: button)
     }
