@@ -13,8 +13,8 @@ Local-only native macOS app for saving text snippets via global hotkey and Servi
 ## Build
 
 ```bash
-make build           # Build release (signed if Signing.xcconfig exists)
-make build-unsigned  # Build without signing (for contributors)
+make build           # Build release (Developer ID signed if Signing.xcconfig exists, ad-hoc otherwise)
+make build-unsigned  # Build with explicit ad-hoc signing (for contributors)
 make test            # Run 222 unit tests
 make dev             # Kill → build → run from build dir
 make update          # Kill → build → install → run
@@ -35,9 +35,18 @@ Select scheme **Tidbits** → Run (⌘R).
 
 ### Signing (for distribution)
 
-Copy `Signing.xcconfig.example` to `Signing.xcconfig` and fill in your Developer ID credentials. `Signing.xcconfig` is gitignored. Without it, `make build` produces an unsigned build.
+Copy `Signing.xcconfig.example` to `Signing.xcconfig` and fill in your Developer ID credentials. `Signing.xcconfig` is gitignored — xcodebuild reads it directly via `-xcconfig`. Without it, `make build` falls back to ad-hoc signing.
 
-Release pipeline (maintainer only): `make release` → build → notarize → staple → DMG.
+Release pipeline (maintainer only): `make release` → build → notarize app → staple app → create DMG → sign/notarize/staple DMG.
+
+### CI
+
+CI workflows use `macos-15` runners (Xcode 16). xcodegen on Xcode 16 generates project format 77 which is incompatible with Xcode 15. Do not downgrade runners to `macos-14`.
+
+- `ci.yml`: Runs tests + unsigned build on push to main and PRs
+- `release.yml`: Triggered by `v*` tags. Tests gate the release job. Uses GitHub secrets for signing (API key auth for notarization, not keychain-profile).
+
+**Certificate import**: The `security import` call must use `-f pkcs12` without `-t cert`. The `-t cert` flag treats a `.p12` as certificate-only and silently discards the private key, causing `set-key-partition-list` to fail. Match Apple's `import-codesign-certs` action flags: `-A -T /usr/bin/codesign -T /usr/bin/security -f pkcs12`.
 
 ## Schema
 
