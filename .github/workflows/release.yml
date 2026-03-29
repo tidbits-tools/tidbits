@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-sign-release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install xcodegen create-dmg
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Import signing certificate
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          CERT_PATH=$RUNNER_TEMP/certificate.p12
+
+          echo -n "$MACOS_CERTIFICATE" | base64 --decode -o $CERT_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security import $CERT_PATH -P "$MACOS_CERTIFICATE_PWD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | tr -d '"')
+
+      - name: Build
+        run: |
+          xcodebuild -project Tidbits.xcodeproj \
+            -scheme Tidbits \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath .derivedData \
+            DEVELOPMENT_TEAM="${{ secrets.DEVELOPMENT_TEAM }}" \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGN_STYLE=Manual \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS=--timestamp \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            build
+
+      - name: Notarize app
+        env:
+          NOTARIZATION_KEY: ${{ secrets.NOTARIZATION_KEY }}
+          NOTARIZATION_KEY_ID: ${{ secrets.NOTARIZATION_KEY_ID }}
+          NOTARIZATION_ISSUER_ID: ${{ secrets.NOTARIZATION_ISSUER_ID }}
+        run: |
+          KEY_PATH=$RUNNER_TEMP/notarization_key.p8
+          echo -n "$NOTARIZATION_KEY" | base64 --decode -o $KEY_PATH
+
+          APP_PATH=.derivedData/Build/Products/Release/Tidbits.app
+          ditto -c -k --keepParent "$APP_PATH" "$APP_PATH/../Tidbits.zip"
+
+          xcrun notarytool submit "$APP_PATH/../Tidbits.zip" \
+            --key "$KEY_PATH" \
+            --key-id "$NOTARIZATION_KEY_ID" \
+            --issuer "$NOTARIZATION_ISSUER_ID" \
+            --wait
+
+      - name: Staple app
+        run: xcrun stapler staple .derivedData/Build/Products/Release/Tidbits.app
+
+      - name: Create DMG
+        run: |
+          create-dmg \
+            --volname "Tidbits" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "Tidbits.app" 150 185 \
+            --app-drop-link 450 185 \
+            --no-internet-enable \
+            Tidbits.dmg \
+            .derivedData/Build/Products/Release/Tidbits.app \
+          || if [ $? -ne 2 ]; then exit 1; fi
+
+      - name: Sign and notarize DMG
+        env:
+          NOTARIZATION_KEY: ${{ secrets.NOTARIZATION_KEY }}
+          NOTARIZATION_KEY_ID: ${{ secrets.NOTARIZATION_KEY_ID }}
+          NOTARIZATION_ISSUER_ID: ${{ secrets.NOTARIZATION_ISSUER_ID }}
+        run: |
+          KEY_PATH=$RUNNER_TEMP/notarization_key.p8
+
+          codesign --force --sign "Developer ID Application" --timestamp Tidbits.dmg
+
+          xcrun notarytool submit Tidbits.dmg \
+            --key "$KEY_PATH" \
+            --key-id "$NOTARIZATION_KEY_ID" \
+            --issuer "$NOTARIZATION_ISSUER_ID" \
+            --wait
+
+          xcrun stapler staple Tidbits.dmg
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            Tidbits.dmg \
+            --title "Tidbits ${{ github.ref_name }}" \
+            --generate-notes
+
+      - name: Cleanup
+        if: always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
+          rm -f $RUNNER_TEMP/certificate.p12 $RUNNER_TEMP/notarization_key.p8
+          rm -f .derivedData/Build/Products/Release/Tidbits.zip
