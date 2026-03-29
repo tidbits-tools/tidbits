@@ -1,0 +1,13 @@
+// Signing configuration for Tidbits.
+// Copy this file to Signing.xcconfig and fill in your values.
+// Signing.xcconfig is gitignored — your credentials stay local.
+//
+// Without this file, `make build` produces an unsigned build (fine for development).
+// With this file, `make build` produces a signed build.
+// `make release` (notarize + DMG) requires valid signing credentials.
+
+DEVELOPMENT_TEAM =
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Automatic
+SIGNING_CERTIFICATE =
+NOTARIZE_PROFILE =

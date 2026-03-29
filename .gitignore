@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Xcode
+.derivedData/
+*.xcodeproj/
+*.xcuserdata/
+xcuserdata/
+
+# Signing (contains developer identity — see Signing.xcconfig.example)
+Signing.xcconfig
+
+# Local Claude context (maintainer-only notes)
+CLAUDE.local.md
+
+# Release artifacts
+.release/
+
+# Claude Code
+.claude/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
