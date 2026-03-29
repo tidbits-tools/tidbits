@@ -182,7 +182,7 @@ jobs:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           KEY_FILE=$RUNNER_TEMP/sparkle_key
-          echo -n "$SPARKLE_ED_PRIVATE_KEY" > "$KEY_FILE"
+          echo "$SPARKLE_ED_PRIVATE_KEY" > "$KEY_FILE"
 
           SIGN_OUTPUT=$(sign_update Tidbits.dmg --ed-key-file "$KEY_FILE")
           echo "Sparkle signature: $SIGN_OUTPUT"
