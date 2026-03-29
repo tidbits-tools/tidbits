@@ -35,7 +35,7 @@ Browsers, terminals, AI apps, editors, mail, notes — anything with selectable 
 
 ## Download
 
-Get the app at [tidbits.tools](https://tidbits.tools). Requires macOS 14.0+.
+[**Download Tidbits**](https://github.com/tidbits-tools/tidbits/releases/latest/download/Tidbits.dmg) — or visit [tidbits.tools](https://tidbits.tools). Requires macOS 14.0+.
 
 ## Build from source
 
