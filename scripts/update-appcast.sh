@@ -15,31 +15,23 @@ DMG_URL="$5"
 APPCAST="appcast.xml"
 PUBLISH_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
 
-NEW_ITEM="    <item>
-      <title>Version $VERSION</title>
-      <pubDate>$PUBLISH_DATE</pubDate>
-      <sparkle:version>$BUILD</sparkle:version>
-      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-      <enclosure
-        url=\"$DMG_URL\"
-        sparkle:edSignature=\"$ED_SIGNATURE\"
-        length=\"$FILE_LENGTH\"
-        type=\"application/octet-stream\"
-      />
-    </item>"
-
 # Insert new item after <channel><title>...</title>
-# Uses awk to find the closing </title> tag and insert after it
-awk -v item="$NEW_ITEM" '
-  /<\/title>/ && !inserted {
-    print
-    print item
-    inserted = 1
-    next
-  }
-  { print }
-' "$APPCAST" > "${APPCAST}.tmp"
+# Uses sed to find the closing </title> tag and insert after it
+sed "/<\/title>/a\\
+    <item>\\
+      <title>Version $VERSION</title>\\
+      <pubDate>$PUBLISH_DATE</pubDate>\\
+      <sparkle:version>$BUILD</sparkle:version>\\
+      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>\\
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>\\
+      <enclosure\\
+        url=\"$DMG_URL\"\\
+        sparkle:edSignature=\"$ED_SIGNATURE\"\\
+        length=\"$FILE_LENGTH\"\\
+        type=\"application/octet-stream\"\\
+      />\\
+    </item>
+" "$APPCAST" > "${APPCAST}.tmp"
 
 mv "${APPCAST}.tmp" "$APPCAST"
 echo "Updated appcast.xml with version $VERSION (build $BUILD)"
