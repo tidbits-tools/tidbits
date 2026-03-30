@@ -60,6 +60,10 @@ public actor NotesStore {
         pages[id]
     }
 
+    public func slug(forPageID pageID: String) -> String? {
+        index[pageID]?.slug
+    }
+
     // MARK: - Write
 
     @discardableResult

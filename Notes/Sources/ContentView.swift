@@ -481,7 +481,9 @@ struct PageDetailView: View {
 
     private func copyPagePrompt() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(ClaudePrompt.page(title: page.title), forType: .string)
+        let slug = appState.store?.slug(forPageID: page.id)
+        let path = slug.map { ClaudePrompt.page(slug: $0) } ?? ClaudePrompt.allNotes()
+        NSPasteboard.general.setString(path, forType: .string)
     }
 
     private func debouncedSave(pageID: String, snippetID: String, text: String) {
