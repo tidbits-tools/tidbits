@@ -165,29 +165,6 @@ jobs:
 
           xcrun stapler staple Tidbits.dmg
 
-      - name: Sign DMG for Sparkle
-        env:
-          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
-        run: |
-          SPARKLE_KEY=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | tr -d '[:space:]')
-          SIGN_OUTPUT=$(printf '%s' "$SPARKLE_KEY" | sign_update Tidbits.dmg --ed-key-file - 2>&1) || {
-            echo "sign_update failed with exit code $?"
-            echo "Output: $SIGN_OUTPUT"
-            exit 1
-          }
-          echo "Sparkle signature: $SIGN_OUTPUT"
-
-          ED_SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2)
-          FILE_LENGTH=$(echo "$SIGN_OUTPUT" | grep -o 'length="[^"]*"' | cut -d'"' -f2)
-
-          if [ -z "$ED_SIGNATURE" ] || [ -z "$FILE_LENGTH" ]; then
-            echo "ERROR: Failed to parse sign_update output: $SIGN_OUTPUT"
-            exit 1
-          fi
-
-          echo "SPARKLE_ED_SIGNATURE=$ED_SIGNATURE" >> "$GITHUB_ENV"
-          echo "SPARKLE_FILE_LENGTH=$FILE_LENGTH" >> "$GITHUB_ENV"
-
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -199,19 +176,28 @@ jobs:
 
       - name: Update appcast
         env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.ref_name }}"
-          VERSION="${TAG#v}"
-          BUILD="${{ github.run_number }}"
-          DMG_URL="https://github.com/${{ github.repository }}/releases/download/$TAG/Tidbits.dmg"
+          DMG_PREFIX="https://github.com/${{ github.repository }}/releases/download/$TAG/"
+
+          mkdir -p release
+          cp Tidbits.dmg release/
+          cp appcast.xml release/ 2>/dev/null || true
+
+          SPARKLE_KEY=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | tr -d '[:space:]')
+          printf '%s' "$SPARKLE_KEY" | generate_appcast \
+            --ed-key-file - \
+            --download-url-prefix "$DMG_PREFIX" \
+            release/
+
+          cp release/appcast.xml appcast.xml
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git checkout main
-
-          bash scripts/update-appcast.sh "$VERSION" "$BUILD" "$SPARKLE_ED_SIGNATURE" "$SPARKLE_FILE_LENGTH" "$DMG_URL"
 
           git add appcast.xml
           git commit -m "Update appcast for $TAG"
