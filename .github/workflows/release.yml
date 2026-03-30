@@ -82,6 +82,7 @@ jobs:
             OTHER_CODE_SIGN_FLAGS=--timestamp \
             CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
             SPARKLE_ED_PUBLIC_KEY="$SPARKLE_ED_PUBLIC_KEY" \
+            MARKETING_VERSION="${GITHUB_REF_NAME#v}" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             build
 
