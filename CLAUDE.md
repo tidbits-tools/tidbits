@@ -44,9 +44,7 @@ Release pipeline (maintainer only): `make release` → build → notarize app �
 CI workflows use `macos-15` runners (Xcode 16). xcodegen on Xcode 16 generates project format 77 which is incompatible with Xcode 15. Do not downgrade runners to `macos-14`.
 
 - `ci.yml`: Runs tests + unsigned build on push to main and PRs
-- `release.yml`: Triggered by `v*` tags. Tests gate the release job. Uses GitHub secrets for signing (API key auth for notarization, not keychain-profile).
-
-**Certificate import**: The `security import` call must use `-f pkcs12` without `-t cert`. The `-t cert` flag treats a `.p12` as certificate-only and silently discards the private key, causing `set-key-partition-list` to fail. Match Apple's `import-codesign-certs` action flags: `-A -T /usr/bin/codesign -T /usr/bin/security -f pkcs12`.
+- `release.yml`: Triggered by `v*` tags. Tests gate the release job. Uses `Apple-Actions/import-codesign-certs@v3` for certificate import (do not hand-roll `security import` commands). Uses API key auth for notarization, not keychain-profile.
 
 ## Schema
 
