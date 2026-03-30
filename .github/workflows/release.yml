@@ -169,7 +169,7 @@ jobs:
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
-          SIGN_OUTPUT=$(echo -n "$SPARKLE_ED_PRIVATE_KEY" | sign_update Tidbits.dmg --ed-key-file - 2>&1) || {
+          SIGN_OUTPUT=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | sign_update Tidbits.dmg --ed-key-file - 2>&1) || {
             echo "sign_update failed with exit code $?"
             echo "Output: $SIGN_OUTPUT"
             exit 1
